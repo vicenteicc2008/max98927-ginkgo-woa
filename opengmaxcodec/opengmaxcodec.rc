@@ -14,11 +14,11 @@ Abstract:
 
 #define VER_FILETYPE                VFT_DRV
 #define VER_FILESUBTYPE             VFT2_DRV_SOUND
-#define VER_FILEDESCRIPTION_STR     "Maxim 98927/98373 Audio Codec"
+#define VER_FILEDESCRIPTION_STR     "Maxim 98512 Audio Codec"
 #define VER_INTERNALNAME_STR        "opengmaxcodec.sys"
 #define VER_ORIGINALFILENAME_STR    "opengmaxcodec.sys"
 
-#define VER_LEGALCOPYRIGHT_YEARS    "2023"
+#define VER_LEGALCOPYRIGHT_YEARS    "2024"
 #define VER_LEGALCOPYRIGHT_STR	    "Copyright (C) " VER_LEGALCOPYRIGHT_YEARS " CoolStar."
 
 #define VER_FILEVERSION 1,0,1,0
@@ -36,6 +36,6 @@ Abstract:
 #define VER_FILEOS				VOS_NT_WINDOWS32
 
 #define VER_COMPANYNAME_STR         "CoolStar"
-#define VER_PRODUCTNAME_STR         "Maxim 98927/98373 Audio Codec"
+#define VER_PRODUCTNAME_STR         "Maxim 98512 Audio Codec"
 
 #include "common.ver"
