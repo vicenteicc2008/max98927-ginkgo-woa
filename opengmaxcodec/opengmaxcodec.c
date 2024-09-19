@@ -1,6 +1,5 @@
 #include "opengmaxcodec.h"
-#include "max98927.h"
-#include "max98373.h"
+#include "max98512.h"
 
 #define bool int
 
@@ -141,45 +140,21 @@ struct initreg {
 	UINT8 val;
 };
 
-struct initreg max98927_initregs[] = {
-	{MAX98927_R0014_MEAS_ADC_THERM_WARN_THRESH, 0x75},
-	{MAX98927_R0015_MEAS_ADC_THERM_SHDN_THRESH, 0x8C},
-	{MAX98927_R0016_MEAS_ADC_THERM_HYSTERESIS, 0x8},
-	{MAX98927_R0018_PCM_RX_EN_A, 0x3},
-	{MAX98927_R0020_PCM_MODE_CFG, 0x58},
-	{MAX98927_R0022_PCM_CLK_SETUP, 0x26},
-	{MAX98927_R0023_PCM_SR_SETUP1, 0x8},
-	{MAX98927_R0037_AMP_DSP_CFG, 0x3},
-	{MAX98927_R0039_DRE_CTRL, 0x1},
-	{MAX98927_R003E_MEAS_EN, 0x3},
-	{MAX98927_R003F_MEAS_DSP_CFG, 0xF7},
-	{MAX98927_R0040_BOOST_CTRL0, 0x1C},
-	{MAX98927_R0042_BOOST_CTRL1, 0x28}, //was 0x14
-	{MAX98927_R0043_MEAS_ADC_CFG, 0x4},
-	{MAX98927_R0044_MEAS_ADC_BASE_MSB, 0x0},
-	{MAX98927_R0045_MEAS_ADC_BASE_LSB, 0x24},
-	{MAX98927_R007F_BROWNOUT_LVL4_AMP1_CTRL1, 0x6},
-	{MAX98927_R0082_ENV_TRACK_VOUT_HEADROOM, 0x0A},
-	{MAX98927_R0086_ENV_TRACK_CTRL, 0x1}
-};
-
-struct initreg max98373_initregs[] = {
-	{MAX98373_R2024_PCM_DATA_FMT_CFG, 0x58},
-	{MAX98373_R2026_PCM_CLOCK_RATIO, 0x6},
-	{MAX98373_R202B_PCM_RX_EN, 0x1},
-	{MAX98373_R202C_PCM_TX_EN, 0x1},
-	{MAX98373_R203F_AMP_DSP_CFG, 0x3},
-	{MAX98373_R2046_IV_SENSE_ADC_DSP_CFG, 0xF7},
-	{MAX98373_R2047_IV_SENSE_ADC_EN, 0x3},
-	{MAX98373_R20B1_BDE_L4_CFG_1, 0x6},
-	{MAX98373_R20D4_DHT_EN, 0x1}
+struct initreg max98512_initregs[] = {
+	{MAX98512_R0014_MEAS_ADC_THERM_WARN_THRESH, 0x75},
+	{MAX98512_R0015_MEAS_ADC_THERM_SHDN_THRESH, 0x8C},
+	{MAX98512_R0016_MEAS_ADC_THERM_HYSTERESIS, 0x8},
+	{MAX98512_R0018_PCM_RX_EN_A, 0x3},
+	{MAX98512_R0020_PCM_MODE_CFG, 0x58},
+	{MAX98512_R0022_PCM_CLK_SETUP, 0x26},
+	{MAX98512_R0023_PCM_SR_SETUP1, 0x8}
 };
 
 NTSTATUS toggleI2CAmp(
 	_In_ PGMAX_CONTEXT pDevice,
 	BOOLEAN enable
 ) {
-	return gmax_reg_write(pDevice, pDevice->chipModel == 98927 ? MAX98927_R003A_AMP_EN : MAX98373_R2043_AMP_EN, enable & 0x1);
+	return gmax_reg_write(pDevice, pDevice->chipModel == 98512 ? MAX98512_R0038_AMP_EN, enable & 0x1);
 }
 
 NTSTATUS enableOutput(
@@ -187,7 +162,7 @@ NTSTATUS enableOutput(
 	BOOLEAN enable
 ) {
 	NTSTATUS status;
-	status = gmax_reg_write(pDevice, pDevice->chipModel == 98927 ? MAX98927_R00FF_GLOBAL_SHDN : MAX98373_R20FF_GLOBAL_SHDN, 1);
+	status = gmax_reg_write(pDevice, pDevice->chipModel == 98512 ? MAX98512_R0400_GLOBAL_SHDN, 1);
 	if (!NT_SUCCESS(status)) {
 		return status;
 	}
@@ -197,6 +172,8 @@ NTSTATUS enableOutput(
 	KeDelayExecutionThread(KernelMode, FALSE, &Interval);
 	return toggleI2CAmp(pDevice, enable);
 }
+
+
 
 NTSTATUS
 GetDeviceHID(
@@ -265,11 +242,8 @@ GetDeviceHID(
 	}
 
 	PGMAX_CONTEXT pDevice = GetDeviceContext(FxDevice);
-	if (strncmp(outputBuffer->Argument[0].Data, "MX98373", outputBuffer->Argument[0].DataLength) == 0) {
-		pDevice->chipModel = 98373;
-	}
-	else if (strncmp(outputBuffer->Argument[0].Data, "MX98927", outputBuffer->Argument[0].DataLength) == 0) {
-		pDevice->chipModel = 98927;
+	if (strncmp(outputBuffer->Argument[0].Data, "MX98512", outputBuffer->Argument[0].DataLength) == 0) {
+		pDevice->chipModel = 98512;
 	}
 	else {
 		status = STATUS_ACPI_INVALID_ARGUMENT;
@@ -475,7 +449,7 @@ StartCodec(
 	}
 
 	UINT8 data = 0;
-	gmax_reg_read(pDevice, pDevice->chipModel == 98927 ? MAX98927_R01FF_REV_ID : MAX98373_R21FF_REV_ID, &data);
+	gmax_reg_read(pDevice, pDevice->chipModel == 98512 ? MAX98512_REV_ID_0, &data);
 
 	BOOLEAN useDefaults = FALSE;
 
@@ -483,9 +457,9 @@ StartCodec(
 	if (GetPlatform() == PlatformAmberLake)
 		rightSpeaker = 0;
 
-	if (pDevice->chipModel == 98927) { //max98927
-		for (int i = 0; i < sizeof(max98927_initregs) / sizeof(struct initreg); i++) {
-			struct initreg regval = max98927_initregs[i];
+	if (pDevice->chipModel == 98512) { //max98512
+		for (int i = 0; i < sizeof(max98512_initregs) / sizeof(struct initreg); i++) {
+			struct initreg regval = max98512_initregs[i];
 			status = gmax_reg_write(pDevice, regval.reg, regval.val);
 			if (!NT_SUCCESS(status)) {
 				return status;
@@ -494,16 +468,6 @@ StartCodec(
 
 		UINT16 ampVolume = 60;
 		UINT16 speakerGain = 1;
-
-		status = gmax_reg_write(pDevice, MAX98927_R0036_AMP_VOL_CTRL, ampVolume & 0x7F);
-		if (!NT_SUCCESS(status)) {
-			return status;
-		}
-
-		status = gmax_reg_write(pDevice, MAX98927_R003C_SPK_GAIN, speakerGain & 0x7);
-		if (!NT_SUCCESS(status)) {
-			return status;
-		}
 
 		UINT16 interleave_mode = 0;
 		UINT16 vmon_slot_no = 0;
@@ -537,178 +501,49 @@ StartCodec(
 		}
 
 		UINT16 temp = (1 << vmon_slot_no) | (1 << imon_slot_no);
-		status = gmax_reg_write(pDevice, MAX98927_R001A_PCM_TX_EN_A, temp);
+		status = gmax_reg_write(pDevice, MAX98512_R001A_PCM_TX_EN_A, temp);
 		if (!NT_SUCCESS(status)) {
 			return status;
 		}
 
-		status = gmax_reg_write(pDevice, MAX98927_R001B_PCM_TX_EN_B, (temp >> 8) | 0xff00);
+		status = gmax_reg_write(pDevice, MAX98512_R001B_PCM_TX_EN_B, (temp >> 8) | 0xff00);
 		if (!NT_SUCCESS(status)) {
 			return status;
 		}
 
 		temp = ~temp;
-		status = gmax_reg_write(pDevice, MAX98927_R001C_PCM_TX_HIZ_CTRL_A, temp);
+		status = gmax_reg_write(pDevice, MAX98512_R001C_PCM_TX_HIZ_CTRL_A, temp);
 		if (!NT_SUCCESS(status)) {
 			return status;
 		}
 
-		status = gmax_reg_write(pDevice, MAX98927_R001D_PCM_TX_HIZ_CTRL_B, (temp >> 8) | 0xff00);
+		status = gmax_reg_write(pDevice, MAX98512_R001D_PCM_TX_HIZ_CTRL_B, (temp >> 8) | 0xff00);
 		if (!NT_SUCCESS(status)) {
 			return status;
 		}
 
-		status = gmax_reg_write(pDevice, MAX98927_R001E_PCM_TX_CH_SRC_A, (imon_slot_no << MAX98927_PCM_TX_CH_SRC_A_I_SHIFT |
+		status = gmax_reg_write(pDevice, MAX98512_R001E_PCM_TX_CH_SRC_A, (imon_slot_no << MAX98927_PCM_TX_CH_SRC_A_I_SHIFT |
 			vmon_slot_no) & 0xFF);
 		if (!NT_SUCCESS(status)) {
 			return status;
 		}
 
-		status = gmax_reg_write(pDevice, MAX98927_R001F_PCM_TX_CH_SRC_B, interleave_mode != 0 ? MAX98927_PCM_TX_CH_INTERLEAVE_MASK : 0);
+		status = gmax_reg_write(pDevice, MAX98512_R001F_PCM_TX_CH_SRC_B, interleave_mode != 0 ? MAX98927_PCM_TX_CH_INTERLEAVE_MASK : 0);
 		if (!NT_SUCCESS(status)) {
 			return status;
 		}
 
-		status = gmax_reg_write(pDevice, MAX98927_R0024_PCM_SR_SETUP2, interleave_mode != 0 ? 0x85 : 0x88);
+		status = gmax_reg_write(pDevice, MAX98512_R0024_PCM_SR_SETUP2, interleave_mode != 0 ? 0x85 : 0x88);
 		if (!NT_SUCCESS(status)) {
 			return status;
 		}
 
-		status = gmax_reg_write(pDevice, MAX98927_R0025_PCM_TO_SPK_MONOMIX_A, pDevice->UID == rightSpeaker ? 0x40 : 0);
+		status = gmax_reg_write(pDevice, MAX98512_R0025_PCM_TO_SPK_MONOMIX_A, pDevice->UID == rightSpeaker ? 0x40 : 0);
 		if (!NT_SUCCESS(status)) {
 			return status;
 		}
 
-		status = gmax_reg_write(pDevice, MAX98927_R0026_PCM_TO_SPK_MONOMIX_B, 1);
-		if (!NT_SUCCESS(status)) {
-			return status;
-		}
-	}
-	else { //98373
-		for (int i = 0; i < sizeof(max98373_initregs) / sizeof(struct initreg); i++) {
-			struct initreg regval = max98373_initregs[i];
-			status = gmax_reg_write(pDevice, regval.reg, regval.val);
-			if (!NT_SUCCESS(status)) {
-				return status;
-			}
-		}
-
-		UINT16 digitalVolume = 12;
-		UINT16 digitalGain = 0;
-		UINT16 digitalMaxGain = 0;
-
-		status = gmax_reg_write(pDevice, MAX98373_R203D_AMP_DIG_VOL_CTRL, digitalVolume & 0x7F);
-		if (!NT_SUCCESS(status)) {
-			return status;
-		}
-
-		status = gmax_reg_write(pDevice, MAX98373_R203E_AMP_PATH_GAIN, ((digitalGain & 0xF) << 4) | (digitalMaxGain & 0xF));
-		if (!NT_SUCCESS(status)) {
-			return status;
-		}
-
-		UINT16 interleave_mode = 0;
-		UINT16 vmon_slot_no = 0;
-		UINT16 imon_slot_no = 0;
-
-		UINT16 spkfb_slot_no = 0;
-		if (!NT_SUCCESS(GetIntegerProperty(pDevice->FxDevice, "maxim,spkfb-slot-no", &spkfb_slot_no))) {
-			spkfb_slot_no = 2;
-		}
-
-		if (!NT_SUCCESS(GetIntegerProperty(pDevice->FxDevice, "maxim,vmon-slot-no", &vmon_slot_no))) {
-			DbgPrint("Warning: unable to get maxim,vmon-slot-no. Using defaults.\n");
-			useDefaults = TRUE;
-		}
-		if (!NT_SUCCESS(GetIntegerProperty(pDevice->FxDevice, "maxim,imon-slot-no", &imon_slot_no))) {
-			DbgPrint("Warning: unable to get maxim,vmon-slot-no. Using defaults.\n");
-			useDefaults = TRUE;
-		}
-
-		if (useDefaults) {
-			if (pDevice->UID == 0) {
-				vmon_slot_no = 4;
-				imon_slot_no = 5;
-			}
-			else {
-				vmon_slot_no = 6;
-				imon_slot_no = 7;
-			}
-		} else {
-			if (NT_SUCCESS(GetIntegerProperty(pDevice->FxDevice, "maxim,interleave_mode", &interleave_mode))) {
-				interleave_mode = 1;
-			}
-			else {
-				interleave_mode = 0;
-			}
-		}
-
-		UINT16 fmt = MAX98373_PCM_MODE_CFG_CHANSZ_16;
-		UINT16 clkRatio = 0x6;
-
-		if (vmon_slot_no < 4) {
-			if ((vmon_slot_no % 2) == 0) {
-				fmt = MAX98373_PCM_MODE_CFG_CHANSZ_32;
-				clkRatio = 0x8;
-			}
-			else {
-				fmt = MAX98373_PCM_MODE_CFG_CHANSZ_24;
-				clkRatio = 0x7;
-			}
-		}
-
-		status = gmax_reg_write(pDevice, MAX98373_R2026_PCM_CLOCK_RATIO, clkRatio);
-		if (!NT_SUCCESS(status)) {
-			return status;
-		}
-
-		UINT16 temp = ~((1 << vmon_slot_no) | (1 << imon_slot_no));
-		status = gmax_reg_write(pDevice, MAX98373_R2020_PCM_TX_HIZ_EN_1, temp);
-		if (!NT_SUCCESS(status)) {
-			return status;
-		}
-
-		status = gmax_reg_write(pDevice, MAX98373_R2021_PCM_TX_HIZ_EN_2, (temp >> 8) | 0xff00);
-		if (!NT_SUCCESS(status)) {
-			return status;
-		}
-
-		status = gmax_reg_write(pDevice, MAX98373_R2022_PCM_TX_SRC_1, ((imon_slot_no & 0xF) << 4) | (vmon_slot_no & 0xF));
-		if (!NT_SUCCESS(status)) {
-			return status;
-		}
-
-		status = gmax_reg_write(pDevice, MAX98373_R2023_PCM_TX_SRC_2, spkfb_slot_no);
-		if (!NT_SUCCESS(status)) {
-			return status;
-		}
-
-		status = gmax_reg_write(pDevice, MAX98373_R2024_PCM_DATA_FMT_CFG, MAX98373_PCM_FORMAT_TDM_MODE0 << MAX98373_PCM_MODE_CFG_FORMAT_SHIFT);
-		if (!NT_SUCCESS(status)) {
-			return status;
-		}
-
-		status = gmax_reg_update(pDevice, MAX98373_R2024_PCM_DATA_FMT_CFG, MAX98373_PCM_MODE_CFG_CHANSZ_MASK, fmt);
-		if (!NT_SUCCESS(status)) {
-			return status;
-		}
-
-		status = gmax_reg_update(pDevice, MAX98373_R2024_PCM_DATA_FMT_CFG, MAX98373_PCM_TX_CH_INTERLEAVE_MASK, interleave_mode ? MAX98373_PCM_TX_CH_INTERLEAVE_MASK : 0);
-		if (!NT_SUCCESS(status)) {
-			return status;
-		}
-
-		status = gmax_reg_write(pDevice, MAX98373_R2028_PCM_SR_SETUP_2, interleave_mode != 0 ? 0x85 : 0x88);
-		if (!NT_SUCCESS(status)) {
-			return status;
-		}
-
-		status = gmax_reg_write(pDevice, MAX98373_R2029_PCM_TO_SPK_MONO_MIX_1, pDevice->UID == rightSpeaker ? 0x40 : 0);
-		if (!NT_SUCCESS(status)) {
-			return status;
-		}
-
-		status = gmax_reg_write(pDevice, MAX98373_R202A_PCM_TO_SPK_MONO_MIX_2, 1);
+		status = gmax_reg_write(pDevice, MAX98512_R0026_PCM_TO_SPK_MONOMIX_B, 1);
 		if (!NT_SUCCESS(status)) {
 			return status;
 		}
@@ -735,7 +570,7 @@ StopCodec(
 ) {
 	NTSTATUS status;
 
-	status = gmax_reg_write(pDevice, pDevice->chipModel == 98927 ? MAX98927_R0100_SOFT_RESET : MAX98373_R2000_SW_RESET, 1);
+	status = gmax_reg_write(pDevice, pDevice->chipModel == 98512 ? MAX98512_SOFT_RESET, 1);
 	
 	pDevice->DevicePoweredOn = FALSE;
 	return status;
