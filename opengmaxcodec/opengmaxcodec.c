@@ -74,16 +74,7 @@ static Platform GetPlatform() {
 		family += (cpuinfo[0] >> 20) & 0xFF;
 	}
 
-	if (strcmp(vendorName, "AuthenticAMD") == 0) {
-		return PlatformRyzen; //family 23 for Picasso / Dali
-	}
-	else if (strcmp(vendorName, "GenuineIntel") == 0) {
-		if (model == 142)
-			return PlatformAmberLake;
-		else
-			return PlatformTigerLake; //should be 140
-	}
-	return PlatformNone;
+	return PlatformQcom;
 }
 
 NTSTATUS gmax_reg_read(
